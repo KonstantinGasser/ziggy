@@ -1,3 +1,5 @@
+use std::io::Seek;
+
 fn main() {
     let path: String = "sorted_ints.txt".into();
 
@@ -10,16 +12,18 @@ fn main() {
     let mut lo = 0;
     let mut mid = 0;
 
-    let target = 5;
+    let target = 4;
     while lo <= hi {
         mid = lo + (hi - lo) / 2;
 
-        let mut value = usize::from(bytes[mid]);
+        let value = std::fs::File::open(&path)
+            .unwrap()
+            .seek(std::io::SeekFrom::Start(((mid - 1) as u64)))
+            .unwrap();
+
         if value == 10 {
             break;
         }
-
-        value -= 48;
 
         if value == target {
             println!("Found target {} in file {}", target, path);
