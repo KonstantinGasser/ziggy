@@ -2,7 +2,6 @@ const std = @import("std");
 const fs = std.fs;
 const io = std.io;
 const debug = std.debug.print;
-const ascii = std.ascii;
 
 const path = "sorted_ints.txt";
 
