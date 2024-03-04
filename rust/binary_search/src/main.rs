@@ -16,10 +16,13 @@ fn main() {
     while lo <= hi {
         mid = lo + (hi - lo) / 2;
 
-        let value = std::fs::File::open(&path)
-            .unwrap()
-            .seek(std::io::SeekFrom::Start(((mid - 1) as u64)))
-            .unwrap();
+        let value = match std::fs::File::open(&path) {
+            Ok(mut file) => match file.seek(std::io::SeekFrom::Start((mid - 1) as u64)) {
+                Ok(value) => value,
+                Err(err) => panic!("unable to seek pos: {:?}: {:?}", mid - 1, err),
+            },
+            Err(err) => panic!("unable to open file {:?}: {:?}", &path, err),
+        };
 
         if value == 10 {
             break;
