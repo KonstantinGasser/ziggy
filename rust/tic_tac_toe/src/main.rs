@@ -1,12 +1,6 @@
 use std::{error::Error, fmt, io, usize};
 
-#[derive(Debug, Clone)]
-enum Cell {
-    Taken(Player),
-    Free,
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 enum Player {
     Cross,
     Circle,
@@ -31,29 +25,46 @@ impl BoardOpt {
     }
 }
 
+enum State {
+    Running,
+    Tie,
+    Winner(Player),
+}
+
 struct Game {
-    state: Vec<Cell>, // game board
+    state: Vec<Option<Player>>, // game board
     turn: Player,
 }
 
 impl Game {
     fn new(size: BoardOpt) -> Game {
         Game {
-            state: vec![Cell::Free; size.dim()],
+            state: vec![None; size.dim()],
             turn: Player::Cross,
         }
     }
 
-    fn apply(&mut self, placement: Placement) -> Result<(), GameError> {
+    fn apply(&mut self, placement: Placement) -> Result<State, GameError> {
         let index = self.to_1d_index(placement.0, placement.1);
 
-        self.state[index] = Cell::Taken(self.turn.clone());
+        self.state[index] = Some(self.turn.clone());
+
+        // check if state if winner and if so map ro Result<Winner>
+        match self.current_state() {
+            Some(State::Winner(player)) => return Ok(State::Winner(player)),
+            Some(State::Running) | Some(State::Tie) | None => (),
+        };
+
         self.turn = match self.turn {
             Player::Circle => Player::Cross,
             Player::Cross => Player::Circle,
         };
 
-        Ok(())
+        Ok(State::Running)
+    }
+
+    fn current_state(&self) -> Option<State> {
+        Some(State::Running)
     }
 
     fn to_1d_index(&self, x: usize, y: usize) -> usize {
@@ -86,11 +97,9 @@ impl fmt::Display for Game {
         self.state.chunks(chunk_size).for_each(|row| {
             row.iter().for_each(|cell| {
                 let char = match cell {
-                    Cell::Taken(player) => match player {
-                        Player::Cross => " X ".to_string(),
-                        Player::Circle => " O ".to_string(),
-                    },
-                    Cell::Free => "   ".to_string(),
+                    Some(Player::Cross) => " X ".to_string(),
+                    Some(Player::Circle) => " O ".to_string(),
+                    None => "   ".to_string(),
                 };
 
                 write!(f, "|{}", char).unwrap();
@@ -127,6 +136,10 @@ fn read_promot(stdin: &mut io::Stdin, buffer: &mut String) -> Result<Placement, 
     Ok(Placement(x, y))
 }
 
+fn clear_screen() {
+    print!("\u{001b}c");
+}
+
 fn main() {
     let mut stdin = io::stdin();
 
@@ -138,11 +151,11 @@ fn main() {
         buffer.clear(); // is there a safer way of cleaning it up? while resuing the same
                         // underlying buffer?
 
-        let _ = game.apply(placement);
+        // let _ = game.apply(placement);
+        if let Ok(State::Winner(player)) = game.apply(placement) {
+            println!("Player {:?} won the game!", player);
+        }
+        // clear_screen();
         println!("{game}");
     }
-    // let _ = game.apply(1, 1);
-
-    // let _ = game.apply(0, 1);
-    // println!("{game}");
 }
