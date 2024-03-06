@@ -112,14 +112,14 @@ fn read_promot(stdin: &mut io::Stdin, buffer: &mut String) -> Result<Placement, 
     };
 
     // convert input to a Placement
-    let coordinates = buffer.split(',').collect::<Vec<&str>>();
+    let coordinates = buffer.trim().split(',').collect::<Vec<&str>>();
 
     let x = match coordinates[0].parse::<usize>() {
         Ok(x) => x,
         Err(err) => panic!("X coordinate is not a usize: {err}"),
     };
 
-    let y = match coordinates[0].parse::<usize>() {
+    let y = match coordinates[1].parse::<usize>() {
         Ok(y) => y,
         Err(err) => panic!("Y coordinate is not a usize: {err}"),
     };
