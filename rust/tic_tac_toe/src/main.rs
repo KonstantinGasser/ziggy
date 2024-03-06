@@ -1,4 +1,4 @@
-use std::{error::Error, fmt, usize};
+use std::{error::Error, fmt, io, usize};
 
 #[derive(Debug, Clone)]
 enum Cell {
@@ -12,6 +12,7 @@ enum Player {
     Circle,
 }
 
+#[derive(Debug)]
 enum GameError {
     InvalidSize(String),
 }
@@ -43,8 +44,8 @@ impl Game {
         }
     }
 
-    fn apply(&mut self, row: usize, col: usize) -> Result<(), GameError> {
-        let index = self.to_1d_index(row, col);
+    fn apply(&mut self, placement: Placement) -> Result<(), GameError> {
+        let index = self.to_1d_index(placement.0, placement.1);
 
         self.state[index] = Cell::Taken(self.turn.clone());
         self.turn = match self.turn {
@@ -102,12 +103,46 @@ impl fmt::Display for Game {
     }
 }
 
+struct Placement(usize, usize);
+
+fn read_promot(stdin: &mut io::Stdin, buffer: &mut String) -> Result<Placement, GameError> {
+    match stdin.read_line(buffer) {
+        Ok(_) => (),
+        Err(err) => panic!("unable to read promopt from io::Stdin: {err}"),
+    };
+
+    // convert input to a Placement
+    let coordinates = buffer.split(',').collect::<Vec<&str>>();
+
+    let x = match coordinates[0].parse::<usize>() {
+        Ok(x) => x,
+        Err(err) => panic!("X coordinate is not a usize: {err}"),
+    };
+
+    let y = match coordinates[0].parse::<usize>() {
+        Ok(y) => y,
+        Err(err) => panic!("Y coordinate is not a usize: {err}"),
+    };
+
+    Ok(Placement(x, y))
+}
+
 fn main() {
-    let mut game = Game::new(BoardOpt::FourByFour);
+    let mut stdin = io::stdin();
 
-    let _ = game.apply(1, 1);
-    println!("{game}");
+    let mut game = Game::new(BoardOpt::ThreeByThree);
 
-    let _ = game.apply(0, 1);
-    println!("{game}");
+    let mut buffer = String::new();
+    loop {
+        let placement = read_promot(&mut stdin, &mut buffer).unwrap();
+        buffer.clear(); // is there a safer way of cleaning it up? while resuing the same
+                        // underlying buffer?
+
+        let _ = game.apply(placement);
+        println!("{game}");
+    }
+    // let _ = game.apply(1, 1);
+
+    // let _ = game.apply(0, 1);
+    // println!("{game}");
 }
