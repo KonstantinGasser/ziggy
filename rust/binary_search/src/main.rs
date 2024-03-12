@@ -1,4 +1,4 @@
-use std::io::Seek;
+use std::io::{Read, Seek};
 
 use anyhow::Context;
 
@@ -12,17 +12,24 @@ fn main() -> anyhow::Result<()> {
     let mut lo = 0;
     let mut mid = 0;
 
-    let target = 4;
+    let args: Vec<String> = std::env::args().collect();
+    let target = args[1]
+        .parse::<u8>()
+        .with_context(|| format!("target: ({}) value is not an u8 value", args[1]))?;
+
     while lo <= hi {
         mid = lo + (hi - lo) / 2;
 
-        let value = match std::fs::File::open(&path) {
-            Ok(mut file) => match file.seek(std::io::SeekFrom::Start((mid - 1) as u64)) {
-                Ok(value) => value,
-                Err(err) => panic!("unable to seek pos: {:?}: {:?}", mid - 1, err),
-            },
-            Err(err) => panic!("unable to open file {:?}: {:?}", &path, err),
-        };
+        let mut fd = std::fs::File::open(&path).with_context(|| format!("open file {}", &path))?;
+        fd.seek(std::io::SeekFrom::Start(mid - 1))
+            .with_context(|| format!("seek position {} in file {}", mid - 1, &path))?;
+
+        let mut buffer = [0; 1];
+        let _ = fd
+            .read_exact(&mut buffer)
+            .context("reading single byte after seek from file")?;
+
+        let value = buffer[0] - 48;
 
         if value == 10 {
             break;
@@ -30,7 +37,7 @@ fn main() -> anyhow::Result<()> {
 
         if value == target {
             println!("Found target {} in file {}", target, path);
-            break;
+            return Ok(());
         }
 
         if target < value {
