@@ -1,14 +1,14 @@
 use std::io::Seek;
 
-fn main() {
+use anyhow::Context;
+
+fn main() -> anyhow::Result<()> {
     let path: String = "sorted_ints.txt".into();
 
-    let bytes = match std::fs::read(&path) {
-        Ok(bytes) => bytes,
-        Err(err) => panic!("unable to read file {:?} into Vec<u8>: {:?}", &path, err),
-    };
+    let metadata =
+        std::fs::metadata(&path).with_context(|| format!("read metadata of file {}", &path))?;
 
-    let mut hi = bytes.len() - 1;
+    let mut hi = metadata.len() - 1;
     let mut lo = 0;
     let mut mid = 0;
 
@@ -30,7 +30,7 @@ fn main() {
 
         if value == target {
             println!("Found target {} in file {}", target, path);
-            return;
+            break;
         }
 
         if target < value {
@@ -42,4 +42,6 @@ fn main() {
         }
     }
     println!("Not found target {} in file {}", target, path);
+
+    Ok(())
 }
