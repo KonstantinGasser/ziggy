@@ -1,1 +1,17 @@
+{% extends "base.html" %}
+
+{% block counter %}
 <h1>Counter test</h1>
+<p>Count {{ view_counter }}</p>
+<div>
+	<form method="GET" action="/increment">
+
+		<button type="submit" >Increment</button>
+	</form>
+	<form method="GET" action="/decrement">
+
+		<button type="submit" >Decrement</button>
+	</form>
+</div>
+{% endblock %}
+
