@@ -1,8 +1,9 @@
-use axum::{routing::get, Router};
+use axum::{extract::Extension, routing::get, Router};
 
 use tracing::{debug, info};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
+mod counter;
 mod handlers;
 
 #[tokio::main]
@@ -17,7 +18,14 @@ async fn main() {
 
     info!("starting http server...");
 
-    let router = Router::new().route("/", get(handlers::index::handle));
+    let app = counter::app::App::new();
+
+    let router = Router::new()
+        .route("/", get(handlers::index::get_count))
+        .route("/increment", get(handlers::index::increment))
+        .route("/decrement", get(handlers::index::decrement))
+        .layer(Extension(app));
+
     let port = 3000_u16;
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
