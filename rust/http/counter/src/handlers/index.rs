@@ -9,27 +9,34 @@ use crate::handlers::html_render;
 #[template(path = "counter.html")]
 pub struct HtmlCounter {
     view_counter: usize,
+    error: Option<String>,
 }
 
 pub async fn get_count(Extension(state): axum::extract::Extension<app::App>) -> impl IntoResponse {
     let count = state.get_count();
     html_render::TemplateResponse(HtmlCounter {
         view_counter: count,
+        error: None,
     })
-    // (StatusCode::OK, format!("Count is: {count}"))
 }
 pub async fn increment(Extension(state): axum::extract::Extension<app::App>) -> impl IntoResponse {
     let new_count = state.increment();
     html_render::TemplateResponse(HtmlCounter {
         view_counter: new_count,
+        error: None,
     })
-    // (StatusCode::OK, format!("New count is: {new_count}"))
 }
 
 pub async fn decrement(Extension(state): axum::extract::Extension<app::App>) -> impl IntoResponse {
-    let new_count = state.decrement();
+    let Some(new_count) = state.decrement() else {
+        return html_render::TemplateResponse(HtmlCounter {
+            view_counter: state.get_count(),
+            error: Some("negative count not allowed".to_owned()),
+        });
+    };
+
     html_render::TemplateResponse(HtmlCounter {
         view_counter: new_count,
+        error: None,
     })
-    // (StatusCode::OK, format!("New count is: {new_count}"))
 }

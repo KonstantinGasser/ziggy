@@ -22,9 +22,12 @@ impl App {
         *counter += 1;
         *counter
     }
-    pub fn decrement(&self) -> usize {
+    pub fn decrement(&self) -> Option<usize> {
         let mut counter = self.counter.lock().unwrap();
+        if *counter == 0 {
+            return None;
+        }
         *counter -= 1;
-        *counter
+        Some(*counter)
     }
 }
