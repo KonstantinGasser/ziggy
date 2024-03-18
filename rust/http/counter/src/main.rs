@@ -3,6 +3,8 @@ use axum::{extract::Extension, routing::get, Router};
 use tracing::{debug, info};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
+use tower_http::services::ServeDir;
+
 mod counter;
 mod handlers;
 
@@ -18,12 +20,19 @@ async fn main() {
 
     info!("starting http server...");
 
+    let assets_path = std::env::current_dir().unwrap();
+
+    info!("assets path: {}", assets_path.to_str().unwrap());
     let app = counter::app::App::new();
 
     let router = Router::new()
         .route("/", get(handlers::index::get_count))
         .route("/increment", get(handlers::index::increment))
         .route("/decrement", get(handlers::index::decrement))
+        .nest_service(
+            "/assets",
+            ServeDir::new(format!("{}/assets", assets_path.to_str().unwrap())),
+        )
         .layer(Extension(app));
 
     let port = 3000_u16;
