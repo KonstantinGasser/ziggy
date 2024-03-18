@@ -21,10 +21,7 @@ pub async fn get_count(Extension(state): axum::extract::Extension<app::App>) -> 
 }
 pub async fn increment(Extension(state): axum::extract::Extension<app::App>) -> impl IntoResponse {
     let new_count = state.increment();
-    html_render::TemplateResponse(HtmlCounter {
-        view_counter: new_count,
-        error: None,
-    })
+    format!("<p class=\"text-lg font-bold text-center m-2\">Count {new_count}</p>")
 }
 
 pub async fn decrement(Extension(state): axum::extract::Extension<app::App>) -> impl IntoResponse {
@@ -32,11 +29,14 @@ pub async fn decrement(Extension(state): axum::extract::Extension<app::App>) -> 
         return html_render::TemplateResponse(HtmlCounter {
             view_counter: state.get_count(),
             error: Some("negative count not allowed".to_owned()),
-        });
+        })
+        .into_response();
     };
 
-    html_render::TemplateResponse(HtmlCounter {
-        view_counter: new_count,
-        error: None,
-    })
+    // html_render::TemplateResponse(HtmlCounter {
+    //     view_counter: new_count,
+    //     error: None,
+    // })
+    // .into_response()
+    format!("<p class=\"text-lg font-bold text-center m-2\">Count {new_count}</p>").into_response()
 }

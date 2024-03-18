@@ -1,12 +1,14 @@
 {% extends "base.html" %} {% block counter %}
   <div class="bg-gray-200 p-6 rounded-lg shadow-xl">
-    <p class="text-lg font-bold text-center m-2">Count {{ view_counter }}</p>
+    <div id="counter">
+      <p class="text-lg font-bold text-center m-2">Count {{ view_counter }}</p>
+    </div>
     <div class="grid-cols-1">
       <div class="flex gap-1 justify-center">
-        <form method="GET" action="/increment">
+        <form hx-get="/increment" hx-target="#counter" hx-swap="innerHTML">
           <button type="submit" class="focus:outline-none text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2 dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-green-800">Increment</button>
         </form>
-        <form method="GET" action="/decrement">
+        <form hx-get="/decrement" hx-target="#counter" hx-swap="innerHTML">
           <button type="submit" class="focus:outline-none text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2 dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-800">Decrement</button>
         </form>
       </div>
