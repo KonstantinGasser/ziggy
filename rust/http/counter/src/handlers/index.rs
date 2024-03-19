@@ -1,42 +1,60 @@
 use askama::Template;
 use axum::extract::Extension;
+use axum::http::HeaderValue;
 use axum::{http::StatusCode, response::IntoResponse};
 
 use crate::counter::app;
 use crate::handlers::html_render;
 
 #[derive(Template)]
+#[template(path = "base.html")]
+pub struct BaseTemplate {
+    view_counter: usize,
+}
+
+#[derive(Template)]
 #[template(path = "counter.html")]
-pub struct HtmlCounter {
+pub struct CounterTemplate {
     view_counter: usize,
     error: Option<String>,
 }
 
-pub async fn get_count(Extension(state): axum::extract::Extension<app::App>) -> impl IntoResponse {
+#[derive(Template)]
+#[template(path = "error.html")]
+pub struct ErrorTemplate {
+    error: String,
+}
+
+pub async fn home(Extension(state): axum::extract::Extension<app::App>) -> impl IntoResponse {
     let count = state.get_count();
-    html_render::TemplateResponse(HtmlCounter {
+    html_render::TemplateResponse(BaseTemplate {
         view_counter: count,
-        error: None,
     })
 }
 pub async fn increment(Extension(state): axum::extract::Extension<app::App>) -> impl IntoResponse {
     let new_count = state.increment();
-    format!("<p class=\"text-lg font-bold text-center m-2\">Count {new_count}</p>")
+    html_render::TemplateResponse(CounterTemplate {
+        view_counter: new_count,
+        error: None,
+    })
+    .into_response()
 }
 
 pub async fn decrement(Extension(state): axum::extract::Extension<app::App>) -> impl IntoResponse {
     let Some(new_count) = state.decrement() else {
-        return html_render::TemplateResponse(HtmlCounter {
-            view_counter: state.get_count(),
-            error: Some("negative count not allowed".to_owned()),
+        let mut resp = html_render::TemplateResponse(ErrorTemplate {
+            error: "negative count not allowed".to_owned(),
         })
         .into_response();
+
+        resp.headers_mut()
+            .insert("HX-Retarget", HeaderValue::from_static("#error"));
+        return resp;
     };
 
-    // html_render::TemplateResponse(HtmlCounter {
-    //     view_counter: new_count,
-    //     error: None,
-    // })
-    // .into_response()
-    format!("<p class=\"text-lg font-bold text-center m-2\">Count {new_count}</p>").into_response()
+    html_render::TemplateResponse(CounterTemplate {
+        view_counter: new_count,
+        error: None,
+    })
+    .into_response()
 }

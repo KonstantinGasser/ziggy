@@ -10,10 +10,20 @@
   <script src="https://unpkg.com/htmx.org@1.9.2"></script>
 </head>
 
-<body class="flex justify-center items-center h-screen">
-  <div class="">
-    <h1 class="text-2xl font-extrabold tracking-wide">This is a simple counter</h1>
-    <div class="content">{% block counter %}{% endblock %}</div>
+<body class="grid justify-center m-4 h-screen bg-gray-100">
+
+  <h1>Count from 0 to usize max</h1>
+  <div id="counter">
+    {% include "counter.html" %}
+  </div>
+  <div id="error"></div>
+  <div class="flex justify-center items-center">
+    <button hx-get="/increment" hx-target="#counter"
+      class="mr-4 px-6 py-2 bg-green-500 text-white font-semibold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">Green
+      Button</button>
+    <button hx-get="/decrement" hx-target="#counter"
+      class="px-6 py-2 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50">Red
+      Button</button>
   </div>
 </body>
 

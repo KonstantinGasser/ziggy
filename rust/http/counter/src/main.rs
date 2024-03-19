@@ -26,7 +26,7 @@ async fn main() {
     let app = counter::app::App::new();
 
     let router = Router::new()
-        .route("/", get(handlers::index::get_count))
+        .route("/", get(handlers::index::home))
         .route("/increment", get(handlers::index::increment))
         .route("/decrement", get(handlers::index::decrement))
         .nest_service(
