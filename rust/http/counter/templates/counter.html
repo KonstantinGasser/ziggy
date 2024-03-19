@@ -1,1 +1,6 @@
 <p class="text-7xl font-bold text-center m-2">Count {{ view_counter }}</p>
+{% if let Some(err) = error %}
+<div class="bg-red-500 text-white px-4 py-2 rounded-md">
+  Error: {{err}}
+</div>
+{% endif %}
