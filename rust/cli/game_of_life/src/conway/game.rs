@@ -21,22 +21,29 @@ pub struct Game(pub Vec<Vec<Option<()>>>);
 impl Game {
     pub fn new(rows: usize, cols: usize) -> Self {
         let mut game = Game(vec![vec![None; cols]; rows]);
+        game.init_pattern();
+        game
+    }
 
-        let row_mid = game.0.len() / 2;
-        let col_mid = game.0[0].len() / 2;
+    fn init_pattern(&mut self) {
+        let row_mid = self.0.len() / 2;
+        let col_mid = self.0[0].len() / 2;
 
         // initial game set
         // r-pentomino pattern
         // --xx--
         // -xx---
         // --x
-        game.0[row_mid][col_mid] = Some(());
-        game.0[row_mid][col_mid + 1] = Some(());
-        game.0[row_mid + 1][col_mid - 1] = Some(());
-        game.0[row_mid + 1][col_mid] = Some(());
-        game.0[row_mid + 2][col_mid] = Some(());
+        self.0[row_mid][col_mid] = Some(());
+        self.0[row_mid][col_mid + 1] = Some(());
+        self.0[row_mid + 1][col_mid - 1] = Some(());
+        self.0[row_mid + 1][col_mid] = Some(());
+        self.0[row_mid + 2][col_mid] = Some(());
+    }
 
-        game
+    pub fn reset(&mut self) {
+        self.0 = vec![vec![None; self.0.len()]; self.0[0].len()];
+        self.init_pattern();
     }
 
     pub fn next_cycle(&self) -> Game {

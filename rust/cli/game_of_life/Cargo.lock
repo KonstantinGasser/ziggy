@@ -365,6 +365,7 @@ dependencies = [
  "axum",
  "clap",
  "rand",
+ "serde",
  "term_size",
  "tokio",
  "tower",

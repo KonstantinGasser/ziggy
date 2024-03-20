@@ -1,6 +1,16 @@
-use axum::Router;
+use askama::Template;
+use serde::{de, Deserialize, Deserializer};
+use std::sync::{Arc, Mutex};
+
+use axum::{
+    extract::{Extension, Query},
+    http::StatusCode,
+    response::{Html, IntoResponse, Response},
+    routing::get,
+    Router,
+};
 use clap::{Parser, Subcommand};
-use tracing::{debug, info};
+use tracing::info;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 mod conway;
@@ -44,21 +54,86 @@ async fn main() {
             }
         }
         Command::Web { port } => {
-            println!("{}", port);
-            // tracing_subscriber::registry()
-            //     .with(
-            //         tracing_subscriber::EnvFilter::try_from_default_env()
-            //             .unwrap_or_else(|_| "counter".into()),
-            //     )
-            //     .with(fmt::layer())
-            //     .init();
-            //
-            // let router = Router::new();
-            //
-            // let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
-            //     .await
-            //     .unwrap();
-            // info!("starting http server...");
+            tracing_subscriber::registry()
+                .with(
+                    tracing_subscriber::EnvFilter::try_from_default_env()
+                        .unwrap_or_else(|_| "game_of_life".into()),
+                )
+                .with(fmt::layer())
+                .init();
+
+            let game = conway::game::Game::new(32, 32);
+            let router = Router::new()
+                .route("/", get(index))
+                .route("/next", get(next_cycle))
+                .route("/reset", get(reset))
+                .layer(Extension(Arc::new(Mutex::new(game))));
+
+            let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
+                .await
+                .unwrap();
+
+            info!("Started HTTP Server on 0.0.0.0:{port}");
+            axum::serve(listener, router).await.unwrap();
+        }
+    }
+}
+
+#[derive(Template)]
+#[template(path = "index.html")]
+pub struct IndexTemplate {
+    state: Vec<Vec<Option<()>>>,
+}
+
+#[derive(Template)]
+#[template(path = "state.html")]
+pub struct StateTemplate {
+    state: Vec<Vec<Option<()>>>,
+}
+
+async fn index(state: Extension<Arc<Mutex<conway::game::Game>>>) -> impl IntoResponse {
+    let state = state.lock().unwrap();
+
+    TemplateResponse(IndexTemplate {
+        state: state.0.clone(),
+    })
+    .into_response()
+}
+
+async fn next_cycle(state: Extension<Arc<Mutex<conway::game::Game>>>) -> impl IntoResponse {
+    let mut state = state.lock().unwrap();
+    state.0 = state.next_cycle().0;
+
+    TemplateResponse(StateTemplate {
+        state: state.0.clone(),
+    })
+    .into_response()
+}
+
+async fn reset(state: Extension<Arc<Mutex<conway::game::Game>>>) -> impl IntoResponse {
+    let mut state = state.lock().unwrap();
+
+    state.reset();
+    TemplateResponse(StateTemplate {
+        state: state.0.clone(),
+    })
+    .into_response()
+}
+
+struct TemplateResponse<T>(pub T);
+
+impl<T> IntoResponse for TemplateResponse<T>
+where
+    T: Template,
+{
+    fn into_response(self) -> Response {
+        match self.0.render() {
+            Ok(html) => Html(html).into_response(),
+            Err(err) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Unable to parse template. Error: {err}"),
+            )
+                .into_response(),
         }
     }
 }
