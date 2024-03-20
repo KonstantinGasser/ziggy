@@ -8,6 +8,11 @@ use axum::{
     response::{Html, IntoResponse, Response},
 };
 
+use axum::response::sse::{Event, KeepAlive, Sse};
+use futures_util::stream::{self, Stream};
+use std::{convert::Infallible, time::Duration};
+use tokio_stream::StreamExt as _;
+
 use crate::conway;
 
 #[derive(Template)]
@@ -68,12 +73,34 @@ pub async fn flip(
 
     state.flip(i, j);
 
+    // TODO: figure out why we cannot return a template even if the parent template is passing in
+    // the required variables. Error message is angry that i,j are not available...
     match state.0[i][j] {
         Some(_) =>  format!("<div id=\"cell-{i}-{j}\" hx-get=\"/flip?i={i}&j={{j}}\" hx-target=\"#cell-{i}-{j}\" hx-swap=\"outerHTML\"
                 style=\"background-color: #000000; width: 20px; height: 20px; border: 1px solid #c4c4c4; cursor: pointer;\"></div>"),
         None =>     format!("<div id=\"cell-{i}-{j}\" hx-get=\"/flip?i={i}&j={{j}}\" hx-target=\"#cell-{i}-{j}\" hx-swap=\"outerHTML\"style=\"background-color: #ffffff; width: 20px; height: 20px; border: 1px solid #c4c4c4; cursor: pointer;\"></div>")
 
     }
+}
+
+pub async fn stream_cycle(
+    state: Extension<Arc<Mutex<conway::game::Game>>>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    let mut state = state.lock().unwrap().clone();
+    let stream = stream::repeat_with(move || {
+        state = state.next_cycle();
+        Event::default().data(
+            GridTemplate {
+                state: state.0.clone(),
+            }
+            .render()
+            .unwrap(),
+        )
+    })
+    .map(Ok)
+    .throttle(Duration::from_secs(1));
+
+    Sse::new(stream).keep_alive(KeepAlive::default())
 }
 
 struct TemplateResponse<T>(pub T);

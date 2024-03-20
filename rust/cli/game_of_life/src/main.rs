@@ -68,6 +68,7 @@ async fn main() {
                 .route("/next", get(http::handler::next_cycle))
                 .route("/reset", get(http::handler::reset))
                 .route("/flip", get(http::handler::flip))
+                .route("/loop", get(http::handler::stream_cycle))
                 .layer(Extension(Arc::new(Mutex::new(game))));
 
             let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))

@@ -8,12 +8,14 @@
 	<link href="css/style.css" rel="stylesheet">
 
 	<script src="https://unpkg.com/htmx.org@1.9.2"></script>
+	<script src="https://unpkg.com/htmx.org@1.9.11/dist/ext/sse.js"></script>
 </head>
 
 <body>
 	<h1 style="display: flex; justify-content: center;">Conway's game of life</h1>
 
-	<div id="state" style="display: grid; justify-content: center;">
+	<div hx-ext="sse" sse-connect="/loop" sse-swap="message" id="state"
+		style="display: grid; justify-content: center;">
 		{% include "grid.html" %}
 	</div>
 

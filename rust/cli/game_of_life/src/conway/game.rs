@@ -16,6 +16,8 @@ fn random_foreground_color(placeholder: &str) -> String {
     let color_code = colors[rng.gen_range(0..colors.len())];
     format!("\x1B[{}m{}", color_code, placeholder)
 }
+
+#[derive(Clone)]
 pub struct Game(pub Vec<Vec<Option<()>>>);
 
 impl Game {
