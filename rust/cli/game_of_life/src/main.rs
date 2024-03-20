@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use rand::Rng;
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -8,33 +9,60 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 enum Command {
-    Run,
+    Run {
+        #[arg(short, long, default_value_t = 200)]
+        delay: u64,
+    },
+}
+
+fn clear_screen() {
+    print!("\x1B[2J");
+}
+
+fn move_cursor_home() {
+    print!("\x1B[H");
+}
+
+fn prepare_repaint() {
+    move_cursor_home();
+    clear_screen();
+}
+
+fn random_foreground_color(placeholder: &str) -> String {
+    let colors = [
+        "31", "32", "33", "34", "35", "36", "91", "92", "93", "94", "95", "96",
+    ];
+    let mut rng = rand::thread_rng();
+    let color_code = colors[rng.gen_range(0..colors.len())];
+    format!("\x1B[{}m{}", color_code, placeholder)
 }
 
 fn main() {
     let args = Args::parse();
 
     match args.command {
-        Command::Run => {
-            clear_screen();
-            let mut game = Game::new(40, 80);
+        Command::Run { delay } => {
+            let (width, height) = term_size::dimensions_stdout().unwrap_or((32, 64));
 
-            println!("{game}");
+            let mut game = Game::new(height, width);
 
-            std::thread::sleep(std::time::Duration::from_millis(200));
+            prepare_repaint();
+            print!("{game}");
+            println!();
+
+            std::thread::sleep(std::time::Duration::from_millis(delay));
 
             loop {
-                clear_screen();
                 game = game.next_cycle();
-                println!("{game}");
-                std::thread::sleep(std::time::Duration::from_millis(200));
+
+                prepare_repaint();
+                print!("\r{game}");
+                println!();
+
+                std::thread::sleep(std::time::Duration::from_millis(delay));
             }
         }
     }
-}
-
-fn clear_screen() {
-    print!("\u{001b}c");
 }
 
 #[derive(Clone)]
@@ -44,16 +72,19 @@ impl Game {
     fn new(rows: usize, cols: usize) -> Self {
         let mut game = Game(vec![vec![0_u8; cols]; rows]);
 
+        let row_mid = game.0.len() / 2;
+        let col_mid = game.0[0].len() / 2;
+
         // initial game set
         // r-pentomino pattern
-        // 17: --xx--
-        // 18: -xx---
-        // 19: --x
-        game.0[17][40] = 1;
-        game.0[17][41] = 1;
-        game.0[18][39] = 1;
-        game.0[18][40] = 1;
-        game.0[19][40] = 1;
+        // --xx--
+        // -xx---
+        // --x
+        game.0[row_mid][col_mid] = 1;
+        game.0[row_mid][col_mid + 1] = 1;
+        game.0[row_mid + 1][col_mid - 1] = 1;
+        game.0[row_mid + 1][col_mid] = 1;
+        game.0[row_mid + 2][col_mid] = 1;
 
         game
     }
@@ -91,14 +122,14 @@ impl Game {
         let b = &self.0;
 
         NEIGBOUR_DIRECTIONS.iter().for_each(|direction| {
-            let row = i as i8 + direction[0];
-            let col = j as i8 + direction[1];
+            let row = i as i16 + direction[0];
+            let col = j as i16 + direction[1];
 
-            if row < 0 || row >= b.len() as i8 {
+            if row < 0 || row >= b.len() as i16 {
                 return;
             }
 
-            if col < 0 || col >= b[0].len() as i8 {
+            if col < 0 || col >= b[0].len() as i16 {
                 return;
             }
 
@@ -111,7 +142,7 @@ impl Game {
     }
 }
 
-const NEIGBOUR_DIRECTIONS: [[i8; 2]; 8] = [
+const NEIGBOUR_DIRECTIONS: [[i16; 2]; 8] = [
     [-1, -1],
     [0, -1],
     [1, -1],
@@ -129,7 +160,7 @@ impl std::fmt::Display for Game {
         self.0.iter().for_each(|row| {
             row.iter().for_each(|cell| match cell {
                 0 => out.push(' '),
-                1 => out.push('X'),
+                1 => out.push_str(&random_foreground_color("X")),
                 _ => unreachable!("cells can only be in the state of dead (=0) or alive (=1)"),
             });
             out.push('\n');
