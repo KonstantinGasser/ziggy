@@ -1,9 +1,0 @@
-{% for row in state %}
-<div style="display: flex;">
-	{% for cell in row %}
-	<div
-		style="background-color: {% if cell.is_some() %} #000000 {% else %} #ffffff {% endif %}; width: 20px; height: 20px; border: 1px solid #c4c4c4;">
-	</div>
-	{% endfor %}
-</div>
-{% endfor %}

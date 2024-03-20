@@ -1,0 +1,11 @@
+{% for row in state %}
+<div style="display: flex;">
+	{% set i = loop.index0 %}
+	{% for cell in row %}
+	{% set j = loop.index0 %}
+	<div id="cell-{{i}}-{{j}}" hx-get="/flip?i={{i}}&j={{j}}" hx-target="#cell-{{i}}-{{j}}" hx-swap="outerHTML"
+		style="background-color: {% if cell.is_some() %} #000000 {% else %} #ffffff {% endif %}; width: 20px; height: 20px; border: 1px solid #c4c4c4; cursor: pointer;">
+	</div>
+	{% endfor %}
+</div>
+{% endfor %}

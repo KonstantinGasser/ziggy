@@ -46,6 +46,13 @@ impl Game {
         self.init_pattern();
     }
 
+    pub fn flip(&mut self, i: usize, j: usize) {
+        match self.0[i][j] {
+            Some(_) => self.0[i][j] = None,
+            None => self.0[i][j] = Some(()),
+        };
+    }
+
     pub fn next_cycle(&self) -> Game {
         let mut next = Game::new(self.0.len(), self.0[0].len());
 
