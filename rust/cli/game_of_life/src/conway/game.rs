@@ -16,11 +16,11 @@ fn random_foreground_color(placeholder: &str) -> String {
     let color_code = colors[rng.gen_range(0..colors.len())];
     format!("\x1B[{}m{}", color_code, placeholder)
 }
-pub struct Game(Vec<Vec<u8>>);
+pub struct Game(pub Vec<Vec<Option<()>>>);
 
 impl Game {
     pub fn new(rows: usize, cols: usize) -> Self {
-        let mut game = Game(vec![vec![0_u8; cols]; rows]);
+        let mut game = Game(vec![vec![None; cols]; rows]);
 
         let row_mid = game.0.len() / 2;
         let col_mid = game.0[0].len() / 2;
@@ -30,11 +30,11 @@ impl Game {
         // --xx--
         // -xx---
         // --x
-        game.0[row_mid][col_mid] = 1;
-        game.0[row_mid][col_mid + 1] = 1;
-        game.0[row_mid + 1][col_mid - 1] = 1;
-        game.0[row_mid + 1][col_mid] = 1;
-        game.0[row_mid + 2][col_mid] = 1;
+        game.0[row_mid][col_mid] = Some(());
+        game.0[row_mid][col_mid + 1] = Some(());
+        game.0[row_mid + 1][col_mid - 1] = Some(());
+        game.0[row_mid + 1][col_mid] = Some(());
+        game.0[row_mid + 2][col_mid] = Some(());
 
         game
     }
@@ -51,15 +51,15 @@ impl Game {
 
                 // Any live cell with fewer than two live neighbors dies, as if by underpopulation.
                 if count < 2 {
-                    next.0[i][j] = 0
+                    next.0[i][j] = None
                 }
                 // Any live cell with two or three live neighbors lives on to the next generation.
                 if count >= 4 {
-                    next.0[i][j] = 0
+                    next.0[i][j] = None
                 }
                 // Any live cell with more than three live neighbors dies, as if by overpopulation.
                 if count == 3 {
-                    next.0[i][j] = 1
+                    next.0[i][j] = Some(())
                 }
             }
         }
@@ -83,7 +83,7 @@ impl Game {
                 return;
             }
 
-            if b[row as usize][col as usize] == 1 {
+            if b[row as usize][col as usize].is_some() {
                 count += 1;
             }
         });
@@ -115,8 +115,8 @@ impl std::fmt::Display for Game {
 
         self.0.iter().for_each(|row| {
             row.iter().for_each(|cell| match cell {
-                0 => out.push(' '),
-                1 => out.push_str(&random_foreground_color("X")),
+                None => out.push(' '),
+                Some(_) => out.push_str(&random_foreground_color("X")),
                 _ => unreachable!("cells can only be in the state of dead (=0) or alive (=1)"),
             });
             out.push('\n');
