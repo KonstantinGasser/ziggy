@@ -5,7 +5,6 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>Conway's Game Of Life</title>
-	<link href="css/style.css" rel="stylesheet">
 
 	<script src="https://unpkg.com/htmx.org@1.9.2"></script>
 	<script src="https://unpkg.com/htmx.org@1.9.11/dist/ext/sse.js"></script>
@@ -13,8 +12,8 @@
 
 <body>
 	<h1 style="display: flex; justify-content: center;">Conway's game of life</h1>
-
-	<div hx-ext="sse" sse-connect="/loop" sse-swap="message" id="state"
+	{% include "stats.html" %}
+	<div {% if with_sse %} hx-ext="sse" sse-connect="/sse" sse-swap="message" {% endif %} id="state"
 		style="display: grid; justify-content: center;">
 		{% include "grid.html" %}
 	</div>
@@ -22,6 +21,8 @@
 	<div style="margin-top: 15px; display: flex; justify-content: center; gap: 5px;">
 		<button hx-get="/next" hx-target="#state" hx-swap="innerHTML">Next cycle</button>
 		<button hx-get="/reset" hx-target="#state" hx-swap="innerHTML">Reset game</button>
+		<button hx-get="/loop" hx-target="body" hx-swap="outerHTML">Loop game</button>
+
 	</div>
 </body>
 

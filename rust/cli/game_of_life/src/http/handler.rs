@@ -20,30 +20,50 @@ use crate::conway;
 struct IndexTemplate {
     state: Vec<Vec<Option<()>>>,
     with_sse: bool,
+    cycles: usize,
+    alive_cells: usize,
 }
 
 #[derive(Template)]
 #[template(path = "grid.html")]
 struct GridTemplate {
     state: Vec<Vec<Option<()>>>,
+    cycles: usize,
+    alive_cells: usize,
+}
+
+#[derive(Template)]
+#[template(path = "grid_response.html")]
+struct GridResponseTemplate {
+    state: Vec<Vec<Option<()>>>,
+    cycles: usize,
+    alive_cells: usize,
 }
 
 pub async fn index(state: Extension<Arc<Mutex<conway::game::Game>>>) -> impl IntoResponse {
-    let state = state.lock().unwrap();
+    let game = state.lock().unwrap();
 
     TemplateResponse(IndexTemplate {
-        state: state.state.clone(),
+        state: game.state.clone(),
         with_sse: false,
+        cycles: game.cycles,
+        alive_cells: game.alive_cells,
     })
     .into_response()
 }
 
 pub async fn next_cycle(state: Extension<Arc<Mutex<conway::game::Game>>>) -> impl IntoResponse {
     let mut game = state.lock().unwrap();
-    game.state = game.next_cycle().state;
+    let tmp = game.next_cycle();
 
-    TemplateResponse(GridTemplate {
+    game.state = tmp.state;
+    game.cycles = tmp.cycles;
+    game.alive_cells = tmp.alive_cells;
+
+    TemplateResponse(GridResponseTemplate {
         state: game.state.clone(),
+        cycles: game.cycles,
+        alive_cells: game.alive_cells,
     })
     .into_response()
 }
@@ -54,6 +74,8 @@ pub async fn reset(state: Extension<Arc<Mutex<conway::game::Game>>>) -> impl Int
     game.reset();
     TemplateResponse(GridTemplate {
         state: game.state.clone(),
+        cycles: game.cycles,
+        alive_cells: game.alive_cells,
     })
     .into_response()
 }
@@ -91,6 +113,8 @@ pub async fn index_with_sse(state: Extension<Arc<Mutex<conway::game::Game>>>) ->
     TemplateResponse(IndexTemplate {
         state: game.state.clone(),
         with_sse: true,
+        cycles: game.cycles,
+        alive_cells: game.alive_cells,
     })
     .into_response()
 }
@@ -104,6 +128,8 @@ pub async fn stream_cycle(
         Event::default().data(
             GridTemplate {
                 state: game.state.clone(),
+                cycles: game.cycles,
+                alive_cells: game.alive_cells,
             }
             .render()
             .unwrap(),

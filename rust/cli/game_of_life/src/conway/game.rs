@@ -1,4 +1,5 @@
 use rand::Rng;
+use tracing::info;
 
 fn clear_screen() {
     print!("\x1B[2J");
@@ -67,6 +68,9 @@ impl Game {
     pub fn next_cycle(&self) -> Game {
         let mut next = Game::new(self.state.len(), self.state[0].len());
 
+        next.cycles += self.cycles + 1;
+        next.alive_cells = 0;
+
         for i in 0..self.state.len() {
             for j in 0..self.state[i].len() {
                 // copy state from previous iteration to next
@@ -76,15 +80,19 @@ impl Game {
 
                 // Any live cell with fewer than two live neighbors dies, as if by underpopulation.
                 if count < 2 {
-                    next.state[i][j] = None
+                    next.state[i][j] = None;
                 }
                 // Any live cell with two or three live neighbors lives on to the next generation.
                 if count >= 4 {
-                    next.state[i][j] = None
+                    next.state[i][j] = None;
                 }
                 // Any live cell with more than three live neighbors dies, as if by overpopulation.
                 if count == 3 {
-                    next.state[i][j] = Some(())
+                    next.state[i][j] = Some(());
+                }
+
+                if next.state[i][j].is_some() {
+                    next.alive_cells += 1;
                 }
             }
         }
