@@ -19,6 +19,7 @@ use crate::conway;
 #[template(path = "index.html")]
 struct IndexTemplate {
     state: Vec<Vec<Option<()>>>,
+    with_sse: bool,
 }
 
 #[derive(Template)]
@@ -31,27 +32,28 @@ pub async fn index(state: Extension<Arc<Mutex<conway::game::Game>>>) -> impl Int
     let state = state.lock().unwrap();
 
     TemplateResponse(IndexTemplate {
-        state: state.0.clone(),
+        state: state.state.clone(),
+        with_sse: false,
     })
     .into_response()
 }
 
 pub async fn next_cycle(state: Extension<Arc<Mutex<conway::game::Game>>>) -> impl IntoResponse {
-    let mut state = state.lock().unwrap();
-    state.0 = state.next_cycle().0;
+    let mut game = state.lock().unwrap();
+    game.state = game.next_cycle().state;
 
     TemplateResponse(GridTemplate {
-        state: state.0.clone(),
+        state: game.state.clone(),
     })
     .into_response()
 }
 
 pub async fn reset(state: Extension<Arc<Mutex<conway::game::Game>>>) -> impl IntoResponse {
-    let mut state = state.lock().unwrap();
+    let mut game = state.lock().unwrap();
 
-    state.reset();
+    game.reset();
     TemplateResponse(GridTemplate {
-        state: state.0.clone(),
+        state: game.state.clone(),
     })
     .into_response()
 }
@@ -66,16 +68,16 @@ pub async fn flip(
     Query(swaps): Query<SwitchOptions>,
     state: Extension<Arc<Mutex<conway::game::Game>>>,
 ) -> impl IntoResponse {
-    let mut state = state.lock().unwrap();
+    let mut game = state.lock().unwrap();
 
     let i = swaps.i;
     let j = swaps.j;
 
-    state.flip(i, j);
+    game.flip(i, j);
 
     // TODO: figure out why we cannot return a template even if the parent template is passing in
     // the required variables. Error message is angry that i,j are not available...
-    match state.0[i][j] {
+    match game.state[i][j] {
         Some(_) =>  format!("<div id=\"cell-{i}-{j}\" hx-get=\"/flip?i={i}&j={{j}}\" hx-target=\"#cell-{i}-{j}\" hx-swap=\"outerHTML\"
                 style=\"background-color: #000000; width: 20px; height: 20px; border: 1px solid #c4c4c4; cursor: pointer;\"></div>"),
         None =>     format!("<div id=\"cell-{i}-{j}\" hx-get=\"/flip?i={i}&j={{j}}\" hx-target=\"#cell-{i}-{j}\" hx-swap=\"outerHTML\"style=\"background-color: #ffffff; width: 20px; height: 20px; border: 1px solid #c4c4c4; cursor: pointer;\"></div>")
@@ -83,15 +85,25 @@ pub async fn flip(
     }
 }
 
+pub async fn index_with_sse(state: Extension<Arc<Mutex<conway::game::Game>>>) -> impl IntoResponse {
+    let game = state.lock().unwrap();
+
+    TemplateResponse(IndexTemplate {
+        state: game.state.clone(),
+        with_sse: true,
+    })
+    .into_response()
+}
+
 pub async fn stream_cycle(
     state: Extension<Arc<Mutex<conway::game::Game>>>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    let mut state = state.lock().unwrap().clone();
+    let mut game = state.lock().unwrap().clone();
     let stream = stream::repeat_with(move || {
-        state = state.next_cycle();
+        game = game.next_cycle();
         Event::default().data(
             GridTemplate {
-                state: state.0.clone(),
+                state: game.state.clone(),
             }
             .render()
             .unwrap(),
