@@ -126,7 +126,7 @@ pub async fn stream_cycle(
     let stream = stream::repeat_with(move || {
         game = game.next_cycle();
         Event::default().data(
-            GridTemplate {
+            GridResponseTemplate {
                 state: game.state.clone(),
                 cycles: game.cycles,
                 alive_cells: game.alive_cells,
