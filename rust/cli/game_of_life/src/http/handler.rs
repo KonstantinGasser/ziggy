@@ -100,9 +100,9 @@ pub async fn flip(
     // TODO: figure out why we cannot return a template even if the parent template is passing in
     // the required variables. Error message is angry that i,j are not available...
     match game.state[i][j] {
-        Some(_) =>  format!("<div id=\"cell-{i}-{j}\" hx-get=\"/flip?i={i}&j={{j}}\" hx-target=\"#cell-{i}-{j}\" hx-swap=\"outerHTML\"
+        Some(_) =>  format!("<div id=\"cell-{i}-{j}\" hx-get=\"/flip?i={i}&j={j}\" hx-target=\"#cell-{i}-{j}\" hx-swap=\"outerHTML\"
                 style=\"background-color: #000000; width: 20px; height: 20px; border: 1px solid #c4c4c4; cursor: pointer;\"></div>"),
-        None =>     format!("<div id=\"cell-{i}-{j}\" hx-get=\"/flip?i={i}&j={{j}}\" hx-target=\"#cell-{i}-{j}\" hx-swap=\"outerHTML\"style=\"background-color: #ffffff; width: 20px; height: 20px; border: 1px solid #c4c4c4; cursor: pointer;\"></div>")
+        None =>     format!("<div id=\"cell-{i}-{j}\" hx-get=\"/flip?i={i}&j={j}\" hx-target=\"#cell-{i}-{j}\" hx-swap=\"outerHTML\"style=\"background-color: #ffffff; width: 20px; height: 20px; border: 1px solid #c4c4c4; cursor: pointer;\"></div>")
 
     }
 }
@@ -119,6 +119,11 @@ pub async fn index_with_sse(state: Extension<Arc<Mutex<conway::game::Game>>>) ->
     .into_response()
 }
 
+// NOTE: have a look at this issue (https://github.com/tokio-rs/axum/issues/2150)
+// it is discussing how to work with channels to trigger an event of the sse stream
+// instead of have a periodical send event. Further this allows to separate the state
+// by NOT moving inside the stream closure from the stream thus allowing multiple
+// subscribers to share the same view/state.
 pub async fn stream_cycle(
     state: Extension<Arc<Mutex<conway::game::Game>>>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
@@ -140,7 +145,7 @@ pub async fn stream_cycle(
         )
     })
     .map(Ok)
-    .throttle(Duration::from_secs(1));
+    .throttle(Duration::from_millis(250));
 
     Sse::new(stream).keep_alive(KeepAlive::default())
 }
