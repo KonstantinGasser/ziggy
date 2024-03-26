@@ -122,9 +122,13 @@ pub async fn index_with_sse(state: Extension<Arc<Mutex<conway::game::Game>>>) ->
 pub async fn stream_cycle(
     state: Extension<Arc<Mutex<conway::game::Game>>>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    let mut game = state.lock().unwrap().clone();
     let stream = stream::repeat_with(move || {
-        game = game.next_cycle();
+        let mut game = state.lock().unwrap();
+        let tmp = game.next_cycle();
+
+        game.state = tmp.state;
+        game.cycles = tmp.cycles;
+        game.alive_cells = tmp.alive_cells;
         Event::default().data(
             GridResponseTemplate {
                 state: game.state.clone(),

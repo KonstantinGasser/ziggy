@@ -1,5 +1,4 @@
 use rand::Rng;
-use tracing::info;
 
 fn clear_screen() {
     print!("\x1B[2J");
@@ -60,8 +59,16 @@ impl Game {
 
     pub fn flip(&mut self, i: usize, j: usize) {
         match self.state[i][j] {
-            Some(_) => self.state[i][j] = None,
-            None => self.state[i][j] = Some(()),
+            Some(_) => {
+                let _ = self.state[i][j].take();
+                if self.alive_cells > 0 {
+                    self.alive_cells -= 1;
+                }
+            }
+            None => {
+                self.state[i][j] = Some(());
+                self.alive_cells += 1;
+            }
         };
     }
 
@@ -104,22 +111,18 @@ impl Game {
 
         let b = &self.state;
 
-        NEIGBOUR_DIRECTIONS.iter().for_each(|direction| {
-            let row = i as i16 + direction[0];
-            let col = j as i16 + direction[1];
+        let cols = b[0].len();
+        let rows = b.len();
+        for x in -1..2 {
+            for y in -1..2 {
+                let row = ((i as i32 + x + rows as i32) % rows as i32) as usize;
+                let col = ((j as i32 + y + cols as i32) % cols as i32) as usize;
 
-            if row < 0 || row >= b.len() as i16 {
-                return;
+                if b[row][col].is_some() {
+                    count += 1;
+                };
             }
-
-            if col < 0 || col >= b[0].len() as i16 {
-                return;
-            }
-
-            if b[row as usize][col as usize].is_some() {
-                count += 1;
-            }
-        });
+        }
 
         count
     }
@@ -130,17 +133,6 @@ impl Game {
         print!("{}", self);
     }
 }
-
-const NEIGBOUR_DIRECTIONS: [[i16; 2]; 8] = [
-    [-1, -1],
-    [0, -1],
-    [1, -1],
-    [1, 0],
-    [1, 1],
-    [0, 1],
-    [-1, 1],
-    [-1, 0],
-];
 
 impl std::fmt::Display for Game {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
