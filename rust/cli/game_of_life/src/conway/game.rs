@@ -1,4 +1,9 @@
+use std::cmp;
+
 use rand::Rng;
+use tokio::sync::broadcast;
+
+use crate::conway::pattern;
 
 fn clear_screen() {
     print!("\x1B[2J");
@@ -17,63 +22,120 @@ fn random_foreground_color(placeholder: &str) -> String {
     format!("\x1B[{}m{}", color_code, placeholder)
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy, Default, Debug)]
+pub struct Cell {
+    pub state: Option<()>,
+    pub cycles_alive: usize,
+}
+
+impl Cell {
+    fn alive() -> Self {
+        Cell {
+            state: Some(()),
+            cycles_alive: 0,
+        }
+    }
+
+    fn revive(&mut self) {
+        self.state = Some(());
+    }
+
+    fn declare_dead(&mut self) {
+        self.cycles_alive = 0;
+    }
+
+    fn declear_survival(&mut self) {
+        self.cycles_alive += 1;
+    }
+
+    // NOTE: colors in hsl are aligned on 360 degrees. The alive cycles
+    // of a cell might be higher than 360. Two options:
+    // 1) either we wrap the color back to the begining however then we lose
+    // indication of age or
+    // 2) we cap the color at its potential max of 360 which is the end state
+    //
+    // Option 2 will be implemeted
+    pub fn color(&self) -> String {
+        if self.state.is_none() {
+            return format!("hsl(0, 0%, 100%)"); // color white
+        }
+
+        // QUESTION: what would be a good way to
+        // color gradient the cell based on the cycles
+        // it stayed alive?
+        //
+        // current issue is that cells start with (0,0,0).
+        // each iteration the b in rgb evolves -> 255
+        format!("hsl(210, 100%, {}%)", cmp::min(self.cycles_alive * 10, 100))
+    }
+}
+
+#[derive(Debug)]
 pub struct Game {
-    pub state: Vec<Vec<Option<()>>>,
+    pub state: Vec<Vec<Cell>>,
     pub cycles: usize,
     pub alive_cells: usize,
 }
 
 impl Game {
-    pub fn new(rows: usize, cols: usize) -> Self {
+    pub fn empty(rows: usize, cols: usize) -> Self {
+        Game {
+            state: vec![vec![Cell::default(); cols]; rows],
+            cycles: 0,
+            alive_cells: 0,
+        }
+    }
+
+    pub fn initialise_random(rows: usize, cols: usize) -> Self {
         let mut game = Game {
-            state: vec![vec![None; cols]; rows],
+            state: vec![vec![Cell::default(); cols]; rows],
             cycles: 0,
             alive_cells: 0,
         };
 
-        game.init_pattern();
+        game.apply_pattern(
+            pattern::copperhead(),
+            game.state.len() / 2,
+            game.state[0].len() / 2,
+        );
         game
     }
 
-    fn init_pattern(&mut self) {
-        let row_mid = self.state.len() / 2;
-        let col_mid = self.state[0].len() / 2;
+    fn apply_pattern(&mut self, pattern: pattern::Pattern, start_x: usize, start_y: usize) {
+        let rows = self.state.len();
+        let cols = self.state[0].len();
 
-        // initial game set
-        // r-pentomino pattern
-        // --xx--
-        // -xx---
-        // --x
-        self.state[row_mid][col_mid] = Some(());
-        self.state[row_mid][col_mid + 1] = Some(());
-        self.state[row_mid + 1][col_mid - 1] = Some(());
-        self.state[row_mid + 1][col_mid] = Some(());
-        self.state[row_mid + 2][col_mid] = Some(());
+        pattern.iter().for_each(|tuple| {
+            self.state[wrap(start_x + tuple.0, rows)][wrap(start_y + tuple.1, cols)].revive();
+        });
     }
 
     pub fn reset(&mut self) {
-        self.state = vec![vec![None; self.state.len()]; self.state[0].len()];
-        self.init_pattern();
+        self.state = vec![vec![Cell::default(); self.state.len()]; self.state[0].len()];
+        self.apply_pattern(
+            pattern::copperhead(),
+            self.state.len() / 2,
+            self.state[0].len() / 2,
+        );
     }
 
     pub fn flip(&mut self, i: usize, j: usize) {
-        match self.state[i][j] {
+        match self.state[i][j].state {
             Some(_) => {
-                let _ = self.state[i][j].take();
+                self.state[i][j].state = None;
                 if self.alive_cells > 0 {
                     self.alive_cells -= 1;
                 }
             }
             None => {
-                self.state[i][j] = Some(());
+                self.state[i][j].state = Some(());
                 self.alive_cells += 1;
             }
         };
     }
 
     pub fn next_cycle(&self) -> Game {
-        let mut next = Game::new(self.state.len(), self.state[0].len());
+        let mut next = Game::empty(self.state.len(), self.state[0].len());
 
         next.cycles += self.cycles + 1;
         next.alive_cells = 0;
@@ -81,24 +143,27 @@ impl Game {
         for i in 0..self.state.len() {
             for j in 0..self.state[i].len() {
                 // copy state from previous iteration to next
-                next.state[i][j] = self.state[i][j];
+                next.state[i][j] = self.state[i][j].clone();
 
                 let count = self.count_neigbours(i, j);
 
                 // Any live cell with fewer than two live neighbors dies, as if by underpopulation.
                 if count < 2 {
-                    next.state[i][j] = None;
+                    next.state[i][j].state = None;
+                    next.state[i][j].declare_dead();
                 }
                 // Any live cell with two or three live neighbors lives on to the next generation.
                 if count >= 4 {
-                    next.state[i][j] = None;
+                    next.state[i][j].state = None;
+                    next.state[i][j].declare_dead();
                 }
                 // Any live cell with more than three live neighbors dies, as if by overpopulation.
                 if count == 3 {
-                    next.state[i][j] = Some(());
+                    next.state[i][j].state = Some(());
+                    next.state[i][j].declear_survival();
                 }
 
-                if next.state[i][j].is_some() {
+                if next.state[i][j].state.is_some() {
                     next.alive_cells += 1;
                 }
             }
@@ -118,7 +183,7 @@ impl Game {
                 let row = ((i as i32 + x + rows as i32) % rows as i32) as usize;
                 let col = ((j as i32 + y + cols as i32) % cols as i32) as usize;
 
-                if b[row][col].is_some() {
+                if b[row][col].state.is_some() {
                     count += 1;
                 };
             }
@@ -139,7 +204,7 @@ impl std::fmt::Display for Game {
         let mut out = String::new();
 
         self.state.iter().for_each(|row| {
-            row.iter().for_each(|cell| match cell {
+            row.iter().for_each(|cell| match cell.state {
                 None => out.push(' '),
                 Some(_) => out.push_str(&random_foreground_color("X")),
                 _ => unreachable!("cells can only be in the state of dead (=0) or alive (=1)"),
@@ -149,4 +214,8 @@ impl std::fmt::Display for Game {
 
         write!(f, "{}", out)
     }
+}
+
+fn wrap(i: usize, dimension: usize) -> usize {
+    (i + dimension) % dimension
 }

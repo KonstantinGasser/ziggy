@@ -41,7 +41,7 @@ async fn main() {
         Command::Run { delay } => {
             let (width, height) = term_size::dimensions_stdout().unwrap_or((32, 64));
 
-            let mut game = conway::game::Game::new(height, width);
+            let mut game = conway::game::Game::empty(height, width);
 
             game.repaint();
             std::thread::sleep(std::time::Duration::from_millis(delay));
@@ -62,22 +62,23 @@ async fn main() {
                 .with(fmt::layer())
                 .init();
 
-            let game = conway::game::Game::new(32, 32);
+            let game = conway::game::Game::initialise_random(32, 32);
+
+            let state = Arc::new(Mutex::new(game));
+
             let router = Router::new()
                 .route("/", get(http::handler::index))
                 .route("/next", get(http::handler::next_cycle))
                 .route("/reset", get(http::handler::reset))
                 .route("/flip", get(http::handler::flip))
-                .route("/loop", get(http::handler::index_with_sse))
-                .route("/sse", get(http::handler::stream_cycle))
-                .layer(Extension(Arc::new(Mutex::new(game))));
+                .layer(Extension(state));
 
             let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
                 .await
                 .unwrap();
 
             info!("Started HTTP Server on 0.0.0.0:{port}");
-            axum::serve(listener, router).await.unwrap();
+            axum::serve(listener, router).await.unwrap()
         }
     }
 }
