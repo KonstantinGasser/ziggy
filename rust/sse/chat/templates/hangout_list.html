@@ -1,0 +1,5 @@
+{% for hangout in rooms %}
+<div hx-get="/connect/{{hangout}}" hx-target="#chat" hx-swap="innerHTML">
+	{{hangout}}
+</div>
+{% endfor %}

@@ -1,0 +1,10 @@
+<div id="messages" hx-ext="sse" sse-connect="/sse/{{hangout_id}}" sse-swap="message">
+</div>
+
+<form>
+	<input type="text" name="send_message" value="" placeholder="Send a message">
+	<input type="hidden" name="hangout_id" value="{{hangout_id}}">
+	<input type="hidden" name="user_handle" value="{{user_handle}}">
+
+	<button type="button" hx-post="/chat/message" hx-swap="none">send</button>
+</form>
