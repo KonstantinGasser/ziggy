@@ -4,6 +4,7 @@ use askama::Template;
 #[template(path = "index.html")]
 pub(crate) struct Index {
     pub(crate) rooms: Vec<String>,
+    pub(crate) cookie_user_handle: Option<String>,
 }
 
 #[derive(Template)]

@@ -20,11 +20,14 @@ use tracing::{error, info};
 /// User represents an open connection
 /// made through a browser window. Each
 /// user must be uniquely identified by a user-handle
-#[derive(Default)]
-pub(crate) struct User {}
+#[derive(Default, Debug)]
+pub(crate) struct User {
+    handle: String,
+}
 
 pub(crate) struct Hangout {
     pub(crate) users: Vec<User>,
+    pub(crate) history: Vec<(i64, String)>,
     rx: Option<Receiver<String>>,
     tx: Option<Sender<String>>,
 }
@@ -33,7 +36,7 @@ pub(crate) struct Hangout {
 // users and ongoing chat rooms.
 #[derive(Default)]
 pub(crate) struct State {
-    online: Mutex<HashMap<usize, User>>,
+    online: Mutex<HashMap<String /*uuid::Uuid string */, User>>,
     rooms: Mutex<HashMap<String, Hangout>>,
 }
 
@@ -42,11 +45,35 @@ impl State {
         State::default()
     }
 
+    pub fn claim_user_handle(&self, user_handle: &str) -> Option<String> {
+        if self
+            .online
+            .lock()
+            .unwrap()
+            .values()
+            .any(|user| user.handle == user_handle)
+        {
+            return Some(user_handle.to_string());
+        }
+
+        let mut online = self.online.lock().unwrap();
+
+        let _ = online.insert(
+            uuid::Uuid::new_v4().to_string(),
+            User {
+                handle: user_handle.to_string(),
+            },
+        );
+
+        None
+    }
+
     pub fn create_hangout(&self, name: &str) -> Option<Hangout> {
         self.rooms.lock().unwrap().insert(
             name.to_string(),
             Hangout {
                 users: Vec::new(),
+                history: Vec::new(),
                 rx: None,
                 tx: None,
             },
@@ -54,13 +81,11 @@ impl State {
     }
 
     pub fn get_hangout_short(&self) -> Vec<String> {
-        self.rooms
-            .lock()
-            .unwrap()
-            .keys()
-            .into_iter()
-            .map(|key| key.to_owned())
-            .collect()
+        let Ok(rooms) = self.rooms.lock() else {
+            return Vec::new();
+        };
+
+        rooms.keys().into_iter().map(|key| key.to_owned()).collect()
     }
 
     pub fn init_hangout(&self, name: &str) -> Option<()> {

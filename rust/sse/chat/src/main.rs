@@ -26,6 +26,7 @@ async fn main() {
         .route("/connect/:hangout", get(handler::load_hangout))
         .route("/sse/:hangout", get(handler::connect_to_hangout))
         .route("/chat/message", post(handler::send_message))
+        .route("/user", post(handler::claim_user_handle))
         .nest_service(
             "/assets",
             ServeDir::new(format!("{}/assets", assets.to_str().unwrap())),

@@ -18,3 +18,6 @@ futures-util = "0.3.30"
 tokio-stream = { version = "0.1.15", features = ["sync"] }
 anyhow = "1.0.81"
 futures = "0.3.30"
+axum-extra = { version = "0.9.3", features = ["cookie", "typed-header"] }
+uuid = { version = "1.8.0", features = ["v4"] }
+headers = "0.4.0"
