@@ -1,4 +1,16 @@
-<div id="messages" hx-ext="sse" sse-connect="/sse/{{hangout_id}}" sse-swap="message">
+<div hx-ext="sse" sse-connect="/sse/{{hangout_id}}">
+	<div>
+		<h2>Chat messages:</h2>
+		<div sse-swap="message" hx-swap="beforeend">
+
+		</div>
+	</div>
+	<div>
+		<h2>Connected Users:</h2>
+		<div sse-swap="user_join">
+
+		</div>
+	</div>
 </div>
 
 <form>
