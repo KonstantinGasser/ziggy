@@ -20,16 +20,26 @@ use tracing::{error, info};
 /// User represents an open connection
 /// made through a browser window. Each
 /// user must be uniquely identified by a user-handle
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub(crate) struct User {
-    handle: String,
+    // pub(crate) id: String,
+    pub(crate) id: String,
+    pub(crate) handle: String,
 }
+
+pub(crate) type UserInfo = (String, String);
 
 pub(crate) struct Hangout {
     pub(crate) users: Vec<User>,
     pub(crate) history: Vec<(i64, String)>,
-    rx: Option<Receiver<String>>,
-    tx: Option<Sender<String>>,
+    rx: Option<Receiver<Message>>,
+    tx: Option<Sender<Message>>,
+}
+
+#[derive(Clone)]
+pub(crate) enum Message {
+    ChatMessage(String),
+    UserJoin(String),
 }
 
 // State is the entire state of all online
@@ -53,19 +63,21 @@ impl State {
             .values()
             .any(|user| user.handle == user_handle)
         {
-            return Some(user_handle.to_string());
+            return None;
         }
 
         let mut online = self.online.lock().unwrap();
 
+        let id = uuid::Uuid::new_v4().to_string();
         let _ = online.insert(
-            uuid::Uuid::new_v4().to_string(),
+            id.clone(),
             User {
+                id: id.clone(),
                 handle: user_handle.to_string(),
             },
         );
 
-        None
+        Some(id.clone())
     }
 
     pub fn create_hangout(&self, name: &str) -> Option<Hangout> {
@@ -80,6 +92,17 @@ impl State {
         )
     }
 
+    pub fn get_online_users(&self) -> Vec<UserInfo> {
+        let Ok(online) = self.online.lock() else {
+            return Vec::new();
+        };
+
+        online
+            .values()
+            .map(|user| (user.id.clone(), user.handle.clone()))
+            .collect()
+    }
+
     pub fn get_hangout_short(&self) -> Vec<String> {
         let Ok(rooms) = self.rooms.lock() else {
             return Vec::new();
@@ -89,29 +112,65 @@ impl State {
     }
 
     pub fn init_hangout(&self, name: &str) -> Option<()> {
-        let (tx, rx) = tokio::sync::broadcast::channel::<String>(16);
-
         let mut hangout = self.rooms.lock().unwrap();
         let Some(hangout) = hangout.get_mut(name) else {
             return None;
         };
 
+        if hangout.rx.is_some() && hangout.tx.is_some() {
+            return Some(());
+        }
+
+        let (tx, rx) = tokio::sync::broadcast::channel::<Message>(16);
         hangout.tx = Some(tx);
         hangout.rx = Some(rx);
 
         Some(())
     }
 
-    pub fn connect_to_hangout(&self, name: &str) -> Option<Receiver<String>> {
-        let hangout = self.rooms.lock().unwrap();
+    pub fn connect_to_hangout(
+        &self,
+        name: &str,
+        user_id: &str,
+    ) -> Option<(Receiver<Message>, Vec<UserInfo>)> {
+        let users = self.online.lock().unwrap();
+        let Some(user) = users.get(user_id) else {
+            return None;
+        };
 
-        let hangout = hangout.get(name).unwrap();
+        let mut hangout = self.rooms.lock().unwrap();
+        let Some(hangout) = hangout.get_mut(name) else {
+            return None;
+        };
+
+        hangout.users.push(user.clone());
 
         let Some(ref rx) = hangout.rx else {
             return None;
         };
 
-        Some(rx.resubscribe())
+        // TODO:
+        // whoever is already in the hangout will not see that someone joined.
+        // Hence, we would need to streame this particular event to all connected
+        // connections
+        let Some(ref tx) = hangout.tx else {
+            return None;
+        };
+
+        match tx.send(Message::UserJoin(user_id.to_string())) {
+            Err(err) => {
+                error!("Sending message to hangout \"{}\": {}", name, err);
+                None
+            }
+            _ => Some((
+                rx.resubscribe(),
+                hangout
+                    .users
+                    .iter()
+                    .map(|u| (u.id.clone(), u.handle.clone()))
+                    .collect(),
+            )),
+        }
     }
 
     pub fn broadcast_to_hangout(&self, name: &str, msg: &str) -> Option<()> {
@@ -122,7 +181,7 @@ impl State {
             return None;
         };
 
-        match tx.send(msg.to_string()) {
+        match tx.send(Message::ChatMessage(msg.to_string())) {
             Err(err) => {
                 error!("Sending message to hangout \"{}\": {}", name, err);
                 None

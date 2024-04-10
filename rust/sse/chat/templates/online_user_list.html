@@ -1,0 +1,5 @@
+{% for user in online %}
+<div hx-get="/connect/user/{{user.0}}" hx-target="#chat" hx-swap="innerHTML">
+	{{user.1}}
+</div>
+{% endfor %}

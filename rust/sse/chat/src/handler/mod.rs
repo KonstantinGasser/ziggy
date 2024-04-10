@@ -11,7 +11,7 @@ use axum::{
     },
     response::{
         sse::{Event, KeepAlive, Sse},
-        IntoResponse,
+        IntoResponse, Redirect,
     },
 };
 
@@ -39,6 +39,7 @@ pub async fn index(
 
     Response(template::Index {
         rooms: state.get_hangout_short(),
+        online: state.get_online_users(),
         cookie_user_handle: user_handle,
     })
 }
@@ -51,24 +52,25 @@ pub async fn claim_user_handle(
     State(state): State<Arc<chat::State>>,
     Form(req): Form<ClaimUserHandleReq>,
 ) -> impl IntoResponse {
-    if let Some(existing_handle) = state.claim_user_handle(&req.user_handle) {
+    let Some(user_id) = state.claim_user_handle(&req.user_handle) else {
         return (
             StatusCode::BAD_REQUEST,
-            format!("User Handle \"{existing_handle}\""),
+            format!("User Handle \"{}\" already exisits", &req.user_handle),
         )
             .into_response();
-    }
+    };
 
     let mut headers = HeaderMap::new();
     headers.insert(
         SET_COOKIE,
-        HeaderValue::from_str(&format!("user_handle={}", &req.user_handle)).unwrap(),
+        HeaderValue::from_str(&format!("user_handle={}", &user_id)).unwrap(),
     );
 
     (
         headers,
         rendering::Response(template::Index {
             rooms: state.get_hangout_short(),
+            online: state.get_online_users(),
             cookie_user_handle: Some(req.user_handle),
         }),
     )
@@ -84,8 +86,6 @@ pub async fn create_hangout(
     State(state): State<Arc<chat::State>>,
     Form(req): Form<CreateHangoutReq>,
 ) -> impl IntoResponse {
-    // let (tx, rx) = tokio::sync::broadcast::channel::<String>(16);
-
     // TODO:: handle !None respone indicating that the hangout room already exisits
     let _ = state.create_hangout(&req.hangout_name);
     Response(template::HangoutList {
@@ -111,16 +111,24 @@ pub async fn load_hangout(
 pub async fn connect_to_hangout(
     State(state): State<Arc<chat::State>>,
     Path(hangout): Path<String>,
+    TypedHeader(cookie): TypedHeader<Cookie>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    let rx = state.connect_to_hangout(&hangout).unwrap();
+    let Some(cookie_user) = cookie.get("user_handle") else {
+        // no cookie no access, redirect to Path("/")
+        // however, function returns Sse<...> and not impl IntoResponse..
+        panic!("No cookie found!");
+    };
+    let (rx, _) = state.connect_to_hangout(&hangout, &cookie_user).unwrap();
 
     let stream = tokio_stream::wrappers::BroadcastStream::new(rx);
 
     Sse::new(
         stream
-            .map(|msg| {
-                let msg = msg.unwrap();
-                Event::default().data(msg)
+            .map(|msg| match msg.unwrap() {
+                chat::Message::ChatMessage(msg) => Event::default().event("message").data(msg),
+                chat::Message::UserJoin(user_name) => {
+                    Event::default().event("user_join").data(user_name)
+                }
             })
             .map(Ok),
     )

@@ -17,10 +17,21 @@
 	{% if cookie_user_handle.is_some() %}
 	<div class="flex gap-1 justify-center">
 		<div class="p-3 bg-gray-400">
-			<div id="hangout_list">
-				{% include "hangout_list.html" %}
-			</div>
+			<div>
+				<h2>Hangout Rooms</h2>
+				<div id="hangout_list">
+					{% include "hangout_list.html" %}
+				</div>
 
+			</div>
+			<hr>
+			<div>
+				<h2>Online Users</h2>
+				<div id="online_list">
+					{% include "online_user_list.html" %}
+				</div>
+
+			</div>
 			<form>
 				<input type="text" name="hangout_name" value="" placeholder="Input is here">
 				<button type="button" hx-post="/hangout" hx-target="#hangout_list"
