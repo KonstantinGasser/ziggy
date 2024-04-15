@@ -153,27 +153,20 @@ impl State {
         // whoever is already in the hangout will not see that someone joined.
         // Hence, we would need to streame this particular event to all connected
         // connections
-        let Some(ref tx) = hangout.tx else {
-            return None;
-        };
-
-        match tx.send(Message::UserJoin(user_id.to_string())) {
-            Err(err) => {
-                error!("Sending message to hangout \"{}\": {}", name, err);
-                None
-            }
-            _ => Some((
-                rx.resubscribe(),
-                hangout
-                    .users
-                    .iter()
-                    .map(|u| (u.id.clone(), u.handle.clone()))
-                    .collect(),
-            )),
-        }
+        //
+        // used using broadcast_to_hangout in order to include new subscriber.
+        // Else send happens before new subscriber live
+        Some((
+            rx.resubscribe(),
+            hangout
+                .users
+                .iter()
+                .map(|u| (u.id.clone(), u.handle.clone()))
+                .collect(),
+        ))
     }
 
-    pub fn broadcast_to_hangout(&self, name: &str, msg: &str) -> Option<()> {
+    pub fn broadcast_to_hangout(&self, name: &str, msg: Message) -> Option<()> {
         let hangout = self.rooms.lock().unwrap();
         let hangout = hangout.get(name).unwrap();
 
@@ -181,7 +174,7 @@ impl State {
             return None;
         };
 
-        match tx.send(Message::ChatMessage(msg.to_string())) {
+        match tx.send(msg) {
             Err(err) => {
                 error!("Sending message to hangout \"{}\": {}", name, err);
                 None

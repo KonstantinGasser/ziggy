@@ -150,7 +150,10 @@ pub async fn send_message(
     State(state): State<Arc<chat::State>>,
     Form(req): Form<SendReq>,
 ) -> impl IntoResponse {
-    state.broadcast_to_hangout(&req.hangout_id, &req.send_message);
+    state.broadcast_to_hangout(
+        &req.hangout_id,
+        chat::Message::ChatMessage(format!("<div>{}</div>", &req.send_message)),
+    );
 
     (StatusCode::OK, "message send to channel")
 }
