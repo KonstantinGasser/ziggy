@@ -5,7 +5,6 @@ zig-out/
 target/
 
 **/assets/
-**/maelstorm/
-
+**/maelstrom/
 node_modules/
 
