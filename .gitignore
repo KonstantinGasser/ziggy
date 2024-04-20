@@ -4,7 +4,8 @@ zig-cache/
 zig-out/
 target/
 
-assets/
+**/assets/
+**/maelstorm/
 
 node_modules/
 
