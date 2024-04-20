@@ -5,24 +5,13 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "type")]
 enum Request {
-    Init {
-        msg_id: usize,
-        node_id: String,
-        node_ids: Vec<String>,
-    },
-    Generate {
-        msg_id: usize,
-    },
+    Generate { msg_id: usize },
 }
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "type")]
 enum Response {
-    InitOk {
-        msg_id: usize,
-        in_reply_to: usize,
-    },
     GenerateOk {
         in_reply_to: usize,
         msg_id: usize,
@@ -36,9 +25,9 @@ struct GeneratorNode {
 }
 
 impl Handle<Request, Response> for GeneratorNode {
-    fn new() -> Self {
+    fn new(label: &str) -> Self {
         GeneratorNode {
-            label: String::new(),
+            label: label.to_string(),
             id_counter: 0,
         }
     }
@@ -46,19 +35,6 @@ impl Handle<Request, Response> for GeneratorNode {
     fn handle(&mut self, message: Message<Request>) -> anyhow::Result<Message<Response>> {
         self.id_counter += 1;
         match message.body {
-            Request::Init {
-                msg_id, node_id, ..
-            } => {
-                self.label = node_id;
-                Ok(Message {
-                    src: self.label.clone(),
-                    dest: message.src,
-                    body: Response::InitOk {
-                        msg_id: self.id_counter,
-                        in_reply_to: msg_id,
-                    },
-                })
-            }
             Request::Generate { msg_id, .. } => Ok(Message {
                 src: self.label.clone(),
                 dest: message.src,

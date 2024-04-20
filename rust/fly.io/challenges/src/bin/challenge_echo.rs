@@ -7,24 +7,13 @@ use challenges::{stream, Handle, Message};
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "type")]
 enum Request {
-    Init {
-        msg_id: usize,
-        node_id: String,
-        node_ids: Vec<String>,
-    },
-    Echo {
-        msg_id: usize,
-        echo: String,
-    },
+    Echo { msg_id: usize, echo: String },
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "type")]
 enum Response {
-    InitOk {
-        in_reply_to: usize,
-    },
     EchoOk {
         msg_id: usize,
         in_reply_to: usize,
@@ -38,9 +27,9 @@ struct EchoNode {
 }
 
 impl Handle<Request, Response> for EchoNode {
-    fn new() -> Self {
+    fn new(label: &str) -> Self {
         EchoNode {
-            label: String::new(),
+            label: label.to_string(),
             id_counter: 0,
         }
     }
@@ -48,19 +37,6 @@ impl Handle<Request, Response> for EchoNode {
     fn handle(&mut self, msg: Message<Request>) -> Result<Message<Response>> {
         self.id_counter += 1;
         match msg.body {
-            Request::Init {
-                msg_id, node_id, ..
-            } => {
-                self.label = node_id;
-
-                Ok(Message {
-                    src: self.label.clone(),
-                    dest: msg.src,
-                    body: Response::InitOk {
-                        in_reply_to: msg_id,
-                    },
-                })
-            }
             Request::Echo { msg_id, echo } => Ok(Message {
                 src: self.label.clone(),
                 dest: msg.src,
