@@ -1,9 +1,7 @@
-use anyhow::Result;
+use challenges::{stream, Handle, Message};
 use serde::{Deserialize, Serialize};
 
-mod event;
-
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "type")]
 enum Request {
@@ -12,71 +10,68 @@ enum Request {
         node_id: String,
         node_ids: Vec<String>,
     },
-    Echo {
+    Generate {
         msg_id: usize,
-        echo: String,
     },
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "type")]
 enum Response {
     InitOk {
-        in_reply_to: usize,
-    },
-    EchoOk {
         msg_id: usize,
         in_reply_to: usize,
-        echo: String,
+    },
+    GenerateOk {
+        in_reply_to: usize,
+        msg_id: usize,
+        id: String,
     },
 }
 
-struct Node {
+struct GeneratorNode {
     label: String,
     id_counter: usize,
 }
-impl Node {
+
+impl Handle<Request, Response> for GeneratorNode {
     fn new() -> Self {
-        Node {
+        GeneratorNode {
             label: String::new(),
             id_counter: 0,
         }
     }
-}
 
-impl event::Handle<Request, Response> for Node {
-    fn handle(&mut self, msg: event::Message<Request>) -> Result<event::Message<Response>> {
+    fn handle(&mut self, message: Message<Request>) -> anyhow::Result<Message<Response>> {
         self.id_counter += 1;
-        match msg.body {
+        match message.body {
             Request::Init {
                 msg_id, node_id, ..
             } => {
                 self.label = node_id;
-
-                Ok(event::Message {
+                Ok(Message {
                     src: self.label.clone(),
-                    dest: msg.src,
+                    dest: message.src,
                     body: Response::InitOk {
+                        msg_id: self.id_counter,
                         in_reply_to: msg_id,
                     },
                 })
             }
-            Request::Echo { msg_id, echo } => Ok(event::Message {
+            Request::Generate { msg_id, .. } => Ok(Message {
                 src: self.label.clone(),
-                dest: msg.src,
-                body: Response::EchoOk {
+                dest: message.src,
+                body: Response::GenerateOk {
                     msg_id: self.id_counter,
                     in_reply_to: msg_id,
-                    echo,
+                    id: uuid::Uuid::new_v4().to_string(),
                 },
             }),
         }
     }
 }
 
-fn main() -> Result<()> {
-    let node = Node::new();
-
-    event::stream::<Request, Response>(node)
+fn main() -> anyhow::Result<()> {
+    stream::<GeneratorNode, Request, Response>()
 }

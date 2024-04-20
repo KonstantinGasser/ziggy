@@ -1,7 +1,6 @@
-use std::io::{BufRead, Write};
-
 use anyhow::Context;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::io::{BufRead, Write};
 
 #[derive(Serialize, Deserialize)]
 pub struct Message<T> {
@@ -11,17 +10,24 @@ pub struct Message<T> {
 }
 
 pub trait Handle<Request, Response> {
+    fn new() -> Self;
     fn handle(&mut self, message: Message<Request>) -> anyhow::Result<Message<Response>>;
 }
 
-pub fn stream<Request, Response>(mut handler: impl Handle<Request, Response>) -> anyhow::Result<()>
+pub fn stream<H, Request, Response>() -> anyhow::Result<()>
 where
+    H: Handle<Request, Response>,
     Request: DeserializeOwned + Send + 'static,
     Response: Serialize,
 {
     // TODO: each node will receive an inital "init" message
     // from maelstrom. Would make sense to parse it beforehand
     // and construct the node?
+    //
+    // Question is why?
+    // - Currently each node needs to implement handeling init messages
+    // - fair enough parsing,handling, and writing would be generic for all (I assume, unless
+    // init message is different form challenge to challenge)
     let (tx, rx) = std::sync::mpsc::channel::<Message<Request>>();
 
     let read_thread = std::thread::spawn(move || -> anyhow::Result<()> {
@@ -42,6 +48,7 @@ where
     });
 
     let mut stdout = std::io::stdout().lock();
+    let mut handler = H::new();
     // read from channel of Message<T> and process them
     for message in rx.into_iter() {
         let response = handler
