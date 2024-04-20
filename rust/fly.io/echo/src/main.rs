@@ -4,16 +4,16 @@ use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
-struct Message {
+struct Message<T> {
     src: String,
     dest: String,
-    body: Payload,
+    body: T,
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "type")]
-enum Payload {
+enum Request {
     Init {
         msg_id: usize,
         node_id: String,
@@ -25,6 +25,20 @@ enum Payload {
     Echo {
         msg_id: usize,
         echo: String,
+    },
+    EchoOk {
+        msg_id: usize,
+        in_reply_to: usize,
+        echo: String,
+    },
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[serde(tag = "type")]
+enum Response {
+    InitOk {
+        in_reply_to: usize,
     },
     EchoOk {
         msg_id: usize,
@@ -45,10 +59,10 @@ impl Node {
         }
     }
 
-    fn handle(&mut self, msg: Message) -> Result<Message> {
+    fn handle(&mut self, msg: Message<Request>) -> Result<Message<Response>> {
         self.id_counter += 1;
         match msg.body {
-            Payload::Init {
+            Request::Init {
                 msg_id, node_id, ..
             } => {
                 self.label = node_id;
@@ -56,31 +70,31 @@ impl Node {
                 Ok(Message {
                     src: self.label.clone(),
                     dest: msg.src,
-                    body: Payload::InitOk {
+                    body: Response::InitOk {
                         in_reply_to: msg_id,
                     },
                 })
             }
-            Payload::Echo { msg_id, echo } => Ok(Message {
+            Request::Echo { msg_id, echo } => Ok(Message {
                 src: self.label.clone(),
                 dest: msg.src,
-                body: Payload::EchoOk {
+                body: Response::EchoOk {
                     msg_id: self.id_counter,
                     in_reply_to: msg_id,
                     echo,
                 },
             }),
-            Payload::EchoOk { msg_id, echo, .. } => Ok(Message {
+            Request::EchoOk { msg_id, echo, .. } => Ok(Message {
                 src: self.label.clone(),
                 dest: msg.src,
-                body: Payload::EchoOk {
+                body: Response::EchoOk {
                     msg_id: self.id_counter,
                     in_reply_to: msg_id,
                     echo,
                 },
             }),
 
-            Payload::InitOk { .. } => {
+            Request::InitOk { .. } => {
                 bail!("unexpected message. Node should not reveive init_ok message")
             }
         }
@@ -92,7 +106,7 @@ fn main() -> Result<()> {
     let mut stdout = std::io::stdout().lock();
     let mut node = Node::new();
 
-    let messages = serde_json::Deserializer::from_reader(stdin).into_iter::<Message>();
+    let messages = serde_json::Deserializer::from_reader(stdin).into_iter::<Message<Request>>();
 
     for message in messages {
         let message = message.context("deserialize of input message failed")?;
