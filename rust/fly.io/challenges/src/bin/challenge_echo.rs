@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use challenges::{stream, Handle, Message};
+use challenges::{event_loop, Handle, Message};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -21,14 +21,14 @@ enum Response {
     },
 }
 
-struct EchoNode {
+struct EchoHandler {
     label: String,
     id_counter: usize,
 }
 
-impl Handle<Request, Response> for EchoNode {
+impl Handle<Request, Response> for EchoHandler {
     fn new(label: &str) -> Self {
-        EchoNode {
+        EchoHandler {
             label: label.to_string(),
             id_counter: 0,
         }
@@ -51,5 +51,5 @@ impl Handle<Request, Response> for EchoNode {
 }
 
 fn main() -> Result<()> {
-    stream::<EchoNode, Request, Response>()
+    event_loop::<EchoHandler, Request, Response>()
 }
