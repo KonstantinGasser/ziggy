@@ -13,10 +13,6 @@ impl<T> Message<T>
 where
     T: Serialize,
 {
-    fn responed(&self, w: impl std::io::Write) -> anyhow::Result<()> {
-        serde_json::to_writer(w, self).context("writing to stdout of Message<Response> failed")
-    }
-
     fn write(&self, w: &mut std::io::StdoutLock) -> anyhow::Result<()> {
         serde_json::to_writer(&mut *w, self)
             .context("writing to stdout of Message<Response> failed")?;
@@ -28,15 +24,8 @@ where
     }
 }
 
-#[derive(Serialize, Deserialize)]
-struct Init {
-    msg_id: usize,
-    node_id: String,
-    node_ids: Vec<String>,
-}
-
 pub trait Handle<Request, Response> {
-    fn new(label: &str) -> Self;
+    fn new() -> Self;
     fn handle(&mut self, message: Message<Request>) -> anyhow::Result<Vec<Message<Response>>>;
 }
 
@@ -47,23 +36,10 @@ where
     Response: Serialize,
 {
     let stdin = std::io::stdin().lock();
-    let init_line = stdin
-        .lines()
-        .next()
-        .expect("first line not provied. First line required as init message");
-    let init_line = init_line.expect("reading init line from stdin failed");
-
-    let init_msg: Message<Init> =
-        serde_json::from_str(&init_line).context("failed to deserialize init message")?;
-
-    if let Err(_) = init_msg.responed(&mut std::io::stdout().lock()) {
-        panic!("sending of init_ok message failed")
-    }
-
-    let mut handler = H::new(&init_msg.body.node_id);
+    let mut handler = H::new();
     let mut stdout = std::io::stdout().lock();
 
-    for line in std::io::stdin().lock().lines() {
+    for line in stdin.lines() {
         let line = line.context("reading from stdin failed")?;
 
         let message: Message<Request> =

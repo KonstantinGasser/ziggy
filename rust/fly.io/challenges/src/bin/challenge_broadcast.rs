@@ -110,7 +110,7 @@ impl Handle<Request, Response> for BroadcatHandler {
             id_counter: 0,
             node_ids: Vec::new(),
             topology: HashMap::new(),
-            messages: HashSet::new(), // HashMap::<String, i64>::new(), // Vec::new(),
+            messages: HashSet::new(),
         }
     }
 
