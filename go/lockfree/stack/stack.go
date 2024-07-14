@@ -1,6 +1,9 @@
 package stack
 
-import "sync/atomic"
+import (
+	"lockfree/backoff"
+	"sync/atomic"
+)
 
 type Node[V any] struct {
 	value V
@@ -30,12 +33,15 @@ func (s *Stack[V]) tryPush(node *Node[V]) bool {
 
 func (s *Stack[V]) Push(value V) {
 
+	busy := backoff.New(2)
 	node := NewNode(value)
 
 	for {
 		if s.tryPush(node) {
 			return
 		}
+
+		busy.Spin()
 	}
 }
 
@@ -54,12 +60,13 @@ func (s *Stack[V]) tryPop() (*V, bool) {
 }
 
 func (s *Stack[V]) Pop() *V {
+
+	busy := backoff.New(2)
 	for {
-		value, ok := s.tryPop()
-		if !ok {
-			continue
+		if value, ok := s.tryPop(); ok {
+			return value
 		}
 
-		return value
+		busy.Spin()
 	}
 }

@@ -76,7 +76,6 @@ func (q *Queue[V]) Dequeue() *V {
 		if ok := q.head.CompareAndSwap(sentinel, next); ok {
 			return &next.value
 		}
-
 	}
 
 }
